@@ -3,24 +3,22 @@ import { StyleSheet, Dimensions } from 'react-native';
 const { width } = Dimensions.get('window');
 
 export const COLORS = {
-  background: '#0B0F19', // Deep pitch dark for battery saving and high contrast
-  cardBg: '#161D30',     // Premium dark navy-slate card
-  cardBorder: '#232D45', // Subtle card borders
+  background: '#0B0F19', // Deep dark slate
+  cardBg: '#151C2C',     // Dark navy card
+  cardBorder: '#1F2A3F', // Border color
   textMain: '#F8FAFC',   // Ice white text
   textMuted: '#94A3B8',  // Soft gray text
   
-  // High-urgency colors
+  // Brand / Action colors
   emergencyRed: '#EF4444',  // Solid active distress red
-  emergencyRedGlow: 'rgba(239, 68, 68, 0.15)',
-  ambulanceGold: '#F59E0B', // Bright warning amber
+  emergencyRedBg: 'rgba(239, 68, 68, 0.1)',
+  ambulanceGold: '#F59E0B', // Warning amber
+  ambulanceGoldBg: 'rgba(245, 158, 11, 0.1)',
   onlineGreen: '#10B981',   // Status positive green
   
-  // Standard actions
   btnActive: '#2563EB',     // Royal blue
   btnText: '#FFFFFF',
-  
-  // Overlays
-  overlayBg: 'rgba(11, 15, 25, 0.95)',
+  overlayBg: 'rgba(11, 15, 25, 0.96)',
 };
 
 export const THEME = StyleSheet.create({
@@ -29,31 +27,37 @@ export const THEME = StyleSheet.create({
     backgroundColor: COLORS.background,
   },
   header: {
-    paddingTop: 50,
+    paddingTop: 55,
     paddingHorizontal: 20,
     paddingBottom: 15,
-    borderBottomWidth: 1,
-    borderBottomColor: COLORS.cardBorder,
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
     backgroundColor: COLORS.cardBg,
+    borderBottomWidth: 1,
+    borderBottomColor: COLORS.cardBorder,
   },
   logoContainer: {
     flexDirection: 'row',
     alignItems: 'center',
   },
-  logoUrdu: {
-    fontSize: 28,
-    fontWeight: 'bold',
-    color: COLORS.emergencyRed,
-    marginRight: 8,
-  },
-  logoEnglish: {
-    fontSize: 18,
-    fontWeight: '800',
+  logoText: {
+    fontSize: 20,
+    fontWeight: '900',
     color: COLORS.textMain,
-    letterSpacing: 1,
+    letterSpacing: 1.5,
+  },
+  logoBadge: {
+    backgroundColor: COLORS.emergencyRed,
+    paddingHorizontal: 6,
+    paddingVertical: 2,
+    borderRadius: 4,
+    marginLeft: 6,
+  },
+  logoBadgeText: {
+    color: '#FFF',
+    fontSize: 10,
+    fontWeight: '900',
   },
   langButton: {
     paddingVertical: 6,
@@ -61,12 +65,12 @@ export const THEME = StyleSheet.create({
     borderRadius: 20,
     backgroundColor: COLORS.cardBorder,
     borderWidth: 1,
-    borderColor: COLORS.textMuted,
+    borderColor: '#334155',
   },
   langButtonText: {
     color: COLORS.textMain,
     fontSize: 12,
-    fontWeight: '600',
+    fontWeight: '700',
   },
   
   // Offline banner
@@ -84,297 +88,254 @@ export const THEME = StyleSheet.create({
     fontWeight: '700',
     textAlign: 'center',
   },
+  
+  // Low-profile Location Banner
+  locationBar: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    backgroundColor: 'rgba(30, 41, 59, 0.5)',
+    paddingVertical: 10,
+    paddingHorizontal: 16,
+    borderBottomWidth: 1,
+    borderBottomColor: COLORS.cardBorder,
+  },
+  locationBarText: {
+    color: COLORS.textMain,
+    fontSize: 13,
+    fontWeight: '700',
+  },
+  locationChangeLink: {
+    color: COLORS.btnActive,
+    fontSize: 12,
+    fontWeight: '700',
+  },
 
-  // Scroll Container
+  // Collapsible GPS panel
+  coordsPanel: {
+    backgroundColor: COLORS.cardBg,
+    padding: 15,
+    borderBottomWidth: 1,
+    borderBottomColor: COLORS.cardBorder,
+  },
+  coordsTitle: {
+    color: COLORS.textMuted,
+    fontSize: 11,
+    fontWeight: '700',
+    marginBottom: 6,
+  },
+  coordsVal: {
+    color: COLORS.textMain,
+    fontSize: 13,
+    fontWeight: '600',
+  },
+  gpsButtonsRow: {
+    flexDirection: 'row',
+    marginTop: 10,
+    gap: 10,
+  },
+  gpsBtn: {
+    flex: 1,
+    paddingVertical: 8,
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: COLORS.cardBorder,
+    alignItems: 'center',
+    backgroundColor: 'rgba(255,255,255,0.02)',
+  },
+  gpsBtnText: {
+    color: COLORS.textMuted,
+    fontSize: 12,
+    fontWeight: '600',
+  },
+
   scrollContainer: {
     paddingHorizontal: 16,
     paddingBottom: 40,
-    paddingTop: 10,
   },
 
-  // GPS Coordinates Card
-  locationCard: {
-    backgroundColor: COLORS.cardBg,
-    borderRadius: 16,
-    padding: 18,
-    marginVertical: 10,
-    borderWidth: 1,
-    borderColor: COLORS.cardBorder,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.3,
-    shadowRadius: 6,
-    elevation: 5,
-  },
-  locationTitleRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    marginBottom: 10,
-    borderBottomWidth: 1,
-    borderBottomColor: COLORS.cardBorder,
-    paddingBottom: 8,
-  },
-  locationTitleText: {
-    fontSize: 12,
-    fontWeight: '700',
-    color: COLORS.textMuted,
-    letterSpacing: 0.8,
-  },
-  locationStatusBadge: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    paddingVertical: 3,
-    paddingHorizontal: 8,
-    borderRadius: 12,
-  },
-  statusBadgeDot: {
-    width: 6,
-    height: 6,
-    borderRadius: 3,
-    marginRight: 5,
-  },
-  statusBadgeText: {
-    fontSize: 11,
-    fontWeight: '700',
-  },
-  locationTextUrdu: {
-    fontSize: 22,
-    fontWeight: 'bold',
-    color: COLORS.textMain,
-    textAlign: 'right',
-    marginTop: 2,
-  },
-  locationTextEn: {
-    fontSize: 16,
-    fontWeight: '700',
-    color: COLORS.textMain,
-    marginTop: 4,
-  },
-  coordsRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    marginTop: 12,
-    backgroundColor: 'rgba(0,0,0,0.2)',
-    padding: 10,
-    borderRadius: 8,
-  },
-  coordCol: {
-    flex: 1,
-  },
-  coordLabel: {
-    fontSize: 10,
-    color: COLORS.textMuted,
-    marginBottom: 2,
-  },
-  coordVal: {
-    fontSize: 13,
-    fontWeight: '700',
-    color: COLORS.textMain,
-  },
-
-  // Manual Override Button
-  overrideBtn: {
-    marginTop: 12,
-    paddingVertical: 10,
-    alignItems: 'center',
-    justifyContent: 'center',
-    borderRadius: 10,
-    borderWidth: 1,
-    borderStyle: 'dashed',
-    borderColor: COLORS.textMuted,
-  },
-  overrideBtnText: {
-    color: COLORS.textMuted,
-    fontSize: 13,
-    fontWeight: '600',
-  },
-  gpsResetBtn: {
-    marginTop: 12,
-    paddingVertical: 10,
-    alignItems: 'center',
-    justifyContent: 'center',
-    borderRadius: 10,
-    backgroundColor: 'rgba(37, 99, 235, 0.15)',
-    borderWidth: 1,
-    borderColor: COLORS.btnActive,
-  },
-  gpsResetBtnText: {
-    color: COLORS.textMain,
-    fontSize: 13,
-    fontWeight: '600',
-  },
-
-  // Info Disclaimer Box
+  // Disclaimer Alert Box
   disclaimerBox: {
-    backgroundColor: 'rgba(239, 68, 68, 0.05)',
+    backgroundColor: COLORS.emergencyRedBg,
     borderRadius: 12,
     padding: 12,
-    marginVertical: 10,
+    marginTop: 15,
     borderWidth: 1,
     borderColor: 'rgba(239, 68, 68, 0.2)',
-  },
-  disclaimerTitle: {
-    fontSize: 12,
-    fontWeight: '700',
-    color: COLORS.emergencyRed,
-    marginBottom: 4,
   },
   disclaimerText: {
     fontSize: 12,
     lineHeight: 18,
-    color: COLORS.textMuted,
+    color: COLORS.emergencyRed,
+    fontWeight: '600',
+    textAlign: 'center',
   },
 
-  // Sections
-  sectionTitle: {
-    fontSize: 15,
+  // --- Giant Speed Dial Grid (Top Feature) ---
+  speedDialTitle: {
+    fontSize: 13,
     fontWeight: '800',
-    color: COLORS.textMain,
+    color: COLORS.textMuted,
     marginTop: 20,
     marginBottom: 10,
-    letterSpacing: 0.5,
-    borderLeftWidth: 3,
-    borderLeftColor: COLORS.emergencyRed,
-    paddingLeft: 8,
+    letterSpacing: 0.8,
   },
-  sectionTitleUrdu: {
-    fontSize: 18,
-    fontWeight: 'bold',
-    color: COLORS.textMain,
-    marginTop: 20,
+  speedDialGrid: {
+    flexDirection: 'row',
+    gap: 10,
     marginBottom: 10,
-    textAlign: 'right',
-    borderRightWidth: 3,
-    borderRightColor: COLORS.emergencyRed,
-    paddingRight: 8,
   },
-
-  // Loader Box
-  loaderBox: {
-    padding: 20,
+  speedDialCard: {
+    flex: 1,
+    borderRadius: 16,
+    paddingVertical: 18,
+    paddingHorizontal: 10,
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: COLORS.cardBg,
-    borderRadius: 12,
-    borderWidth: 1,
-    borderColor: COLORS.cardBorder,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.3,
+    shadowRadius: 5,
+    elevation: 4,
   },
-  loaderText: {
-    color: COLORS.textMuted,
-    fontSize: 13,
-    marginTop: 10,
+  speedDialCardRed: {
+    backgroundColor: COLORS.emergencyRed,
+  },
+  speedDialCardGold: {
+    backgroundColor: COLORS.ambulanceGold,
+  },
+  speedDialNumber: {
+    fontSize: 30,
+    fontWeight: '900',
+    color: '#FFFFFF',
+    letterSpacing: 1,
+  },
+  speedDialLabel: {
+    fontSize: 12,
+    fontWeight: '900',
+    color: '#FFFFFF',
+    marginTop: 4,
+    textAlign: 'center',
+  },
+  speedDialSubLabel: {
+    fontSize: 9,
+    fontWeight: '700',
+    color: 'rgba(255, 255, 255, 0.8)',
+    marginTop: 2,
     textAlign: 'center',
   },
 
-  // Contact list empty state
-  emptyBox: {
-    padding: 20,
+  // Section Headers
+  sectionHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
     alignItems: 'center',
-    backgroundColor: COLORS.cardBg,
-    borderRadius: 12,
-    borderWidth: 1,
-    borderColor: COLORS.cardBorder,
+    marginTop: 25,
+    marginBottom: 10,
+    borderBottomWidth: 1,
+    borderBottomColor: COLORS.cardBorder,
+    paddingBottom: 6,
   },
-  emptyText: {
-    color: COLORS.textMuted,
-    fontSize: 13,
-    textAlign: 'center',
+  sectionTitle: {
+    fontSize: 14,
+    fontWeight: '800',
+    color: COLORS.textMain,
+    letterSpacing: 0.5,
+  },
+  liveBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingVertical: 3,
+    paddingHorizontal: 8,
+    borderRadius: 10,
+    backgroundColor: COLORS.ambulanceGoldBg,
+    borderWidth: 0.5,
+    borderColor: COLORS.ambulanceGold,
+  },
+  liveBadgeDot: {
+    width: 5,
+    height: 5,
+    borderRadius: 2.5,
+    backgroundColor: COLORS.ambulanceGold,
+    marginRight: 4,
+  },
+  liveBadgeText: {
+    fontSize: 9,
+    fontWeight: '800',
+    color: COLORS.ambulanceGold,
   },
 
-  // Call cards list
+  // --- Clean Minimal Dials list ---
   card: {
     backgroundColor: COLORS.cardBg,
-    borderRadius: 16,
-    padding: 16,
-    marginVertical: 6,
+    borderRadius: 14,
+    padding: 14,
+    marginVertical: 5,
     borderWidth: 1,
     borderColor: COLORS.cardBorder,
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.2,
-    shadowRadius: 4,
-    elevation: 3,
   },
   cardDetails: {
     flex: 1,
     paddingRight: 10,
   },
-  cardHeaderRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'flex-start',
-  },
-  badge: {
+  cardCategory: {
     fontSize: 9,
+    fontWeight: '700',
+    color: COLORS.textMuted,
+    textTransform: 'uppercase',
+    letterSpacing: 0.5,
+  },
+  cardTitle: {
+    fontSize: 15,
     fontWeight: '800',
     color: COLORS.textMain,
-    paddingVertical: 2,
-    paddingHorizontal: 6,
-    borderRadius: 8,
-    alignSelf: 'flex-start',
-    overflow: 'hidden',
-  },
-  badgeVerified: {
-    backgroundColor: 'rgba(16, 185, 129, 0.2)',
-    color: COLORS.onlineGreen,
-    borderWidth: 0.5,
-    borderColor: COLORS.onlineGreen,
-  },
-  badgeLive: {
-    backgroundColor: 'rgba(245, 158, 11, 0.2)',
-    color: COLORS.ambulanceGold,
-    borderWidth: 0.5,
-    borderColor: COLORS.ambulanceGold,
-  },
-  distanceText: {
-    fontSize: 11,
-    fontWeight: '700',
-    color: COLORS.ambulanceGold,
-    alignSelf: 'flex-start',
     marginTop: 2,
   },
-  cardTitleEn: {
-    fontSize: 15,
-    fontWeight: '700',
-    color: COLORS.textMain,
-    marginTop: 4,
+  cardMetaRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginTop: 6,
+    gap: 12,
   },
-  cardTitleUr: {
-    fontSize: 19,
-    fontWeight: 'bold',
-    color: COLORS.textMain,
-    textAlign: 'right',
-    marginTop: 2,
-  },
-  cardAddress: {
+  cardMetaItem: {
     fontSize: 11,
     color: COLORS.textMuted,
-    marginTop: 6,
+    fontWeight: '500',
+  },
+  cardMetaPhone: {
+    color: COLORS.ambulanceGold,
+    fontWeight: '700',
   },
   callBtn: {
     backgroundColor: COLORS.emergencyRed,
-    paddingVertical: 12,
+    paddingVertical: 10,
     paddingHorizontal: 16,
-    borderRadius: 12,
+    borderRadius: 10,
+    height: 40,
+    justifyContent: 'center',
+    alignItems: 'center',
+    minWidth: 80,
+  },
+  callBtnText: {
+    color: '#FFFFFF',
+    fontWeight: '900',
+    fontSize: 12,
+  },
+
+  // Loader
+  loaderBox: {
+    paddingVertical: 30,
     alignItems: 'center',
     justifyContent: 'center',
-    minWidth: 90,
-    height: 50,
   },
-  callBtnTextEn: {
-    color: COLORS.btnText,
-    fontWeight: '800',
+  loaderText: {
+    color: COLORS.textMuted,
     fontSize: 12,
-    letterSpacing: 0.5,
-  },
-  callBtnTextUr: {
-    color: COLORS.btnText,
-    fontWeight: 'bold',
-    fontSize: 15,
+    marginTop: 8,
+    textAlign: 'center',
   },
 
   // Modal styling (for manual selection)
@@ -403,23 +364,17 @@ export const THEME = StyleSheet.create({
     borderBottomWidth: 1,
     borderBottomColor: COLORS.cardBorder,
   },
-  modalTitleUr: {
-    fontSize: 22,
-    fontWeight: 'bold',
-    color: COLORS.textMain,
-  },
-  modalTitleEn: {
+  modalTitle: {
     fontSize: 16,
-    fontWeight: '700',
+    fontWeight: '800',
     color: COLORS.textMain,
   },
   closeBtn: {
-    padding: 8,
+    padding: 6,
   },
   closeBtnText: {
     color: COLORS.textMuted,
     fontSize: 14,
-    fontWeight: '600',
   },
   searchInput: {
     backgroundColor: COLORS.background,
@@ -440,29 +395,14 @@ export const THEME = StyleSheet.create({
     justifyContent: 'space-between',
     alignItems: 'center',
   },
-  districtDetails: {
-    flex: 1,
-  },
-  districtNameEn: {
+  districtName: {
     fontSize: 15,
     fontWeight: '700',
     color: COLORS.textMain,
   },
-  districtProvinceEn: {
+  districtProvince: {
     fontSize: 11,
     color: COLORS.textMuted,
-    marginTop: 2,
-  },
-  districtNameUr: {
-    fontSize: 19,
-    fontWeight: 'bold',
-    color: COLORS.textMain,
-    textAlign: 'right',
-  },
-  districtProvinceUr: {
-    fontSize: 12,
-    color: COLORS.textMuted,
-    textAlign: 'right',
     marginTop: 2,
   },
 });

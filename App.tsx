@@ -44,6 +44,9 @@ export default function App() {
   const [gpsActive, setGpsActive] = useState<boolean>(false);
   const [locationError, setLocationError] = useState<string | null>(null);
 
+  // Collapsible GPS coordinates state
+  const [showCoordsPanel, setShowCoordsPanel] = useState<boolean>(false);
+
   // Resolved Geofence and Manual Selection
   const [resolvedDistrict, setResolvedDistrict] = useState<{
     id: string;
@@ -57,7 +60,6 @@ export default function App() {
   // Search Results
   const [liveContacts, setLiveContacts] = useState<EmergencyContact[]>([]);
   const [isFetchingLive, setIsFetchingLive] = useState<boolean>(false);
-  const [liveSearchError, setLiveSearchError] = useState<boolean>(false);
 
   // Modal State for manual override
   const [modalVisible, setModalVisible] = useState<boolean>(false);
@@ -94,11 +96,10 @@ export default function App() {
         setLocation(coords);
         const dist = resolveDistrictOffline(coords.latitude, coords.longitude);
         setResolvedDistrict(dist);
-        // Clear manual override if new location matches geofence
         if (dist) setManualDistrictId(null);
       }
 
-      // High accuracy fresh check
+      // Fresh high accuracy query
       const freshLocation = await Location.getCurrentPositionAsync({
         accuracy: Location.Accuracy.Balanced,
       });
@@ -128,7 +129,6 @@ export default function App() {
 
   // 3. Dynamic Live OSM Searching
   useEffect(() => {
-    // If offline or no coordinates, skip real-time searching
     if (!isOnline || !location) {
       setLiveContacts([]);
       return;
@@ -136,7 +136,6 @@ export default function App() {
 
     const triggerLiveSearch = async () => {
       setIsFetchingLive(true);
-      setLiveSearchError(false);
       try {
         const osmResults = await searchNearbyOsmFacilities(
           location.latitude,
@@ -145,7 +144,6 @@ export default function App() {
         setLiveContacts(osmResults);
       } catch (err) {
         console.error('OSM Search Error:', err);
-        setLiveSearchError(true);
         setLiveContacts([]);
       } finally {
         setIsFetchingLive(false);
@@ -174,15 +172,18 @@ export default function App() {
       .catch((err) => console.error('Call Error:', err));
   };
 
-  // Determine active district configuration
+  // Active district resolution
   const activeDistrictId = manualDistrictId || resolvedDistrict?.id || null;
 
-  // Compile offline contacts
+  // Compile offline contacts (national helplines are separated into the top speed dial grid)
   const localContacts = useMemo(() => {
     if (activeDistrictId) {
-      return getContactsByDistrict(activeDistrictId);
+      // Exclude national numbers since they are featured in the speed dial grid
+      return getContactsByDistrict(activeDistrictId).filter(
+        (c) => !NATIONAL_CONTACTS.some((nc) => nc.phone === c.phone)
+      );
     }
-    return NATIONAL_CONTACTS;
+    return [];
   }, [activeDistrictId]);
 
   // Deduplicate and merge live OSM feeds and local contacts
@@ -190,13 +191,12 @@ export default function App() {
     const allUniqueContacts: EmergencyContact[] = [];
     const seenPhones = new Set<string>();
 
-    // Prioritize national numbers at the very top (never duplicate)
+    // Skip numbers featured in the top speed dial
     NATIONAL_CONTACTS.forEach((c) => {
-      allUniqueContacts.push(c);
       seenPhones.add(c.phone);
     });
 
-    // Add live map search elements (filter out duplicates with existing national helplines)
+    // Add live map search elements
     liveContacts.forEach((c) => {
       if (!seenPhones.has(c.phone)) {
         allUniqueContacts.push(c);
@@ -204,7 +204,7 @@ export default function App() {
       }
     });
 
-    // Add local database elements (filter out duplicates)
+    // Add local database elements
     localContacts.forEach((c) => {
       if (!seenPhones.has(c.phone)) {
         allUniqueContacts.push(c);
@@ -235,6 +235,25 @@ export default function App() {
     fetchLocation();
   };
 
+  // Resolve current active location text
+  const activeLocationText = useMemo(() => {
+    if (isLocating) {
+      return getTranslation(lang, 'unknownLocation');
+    }
+    if (manualDistrictId) {
+      const matched = DISTRICTS_LIST.find((d) => d.id === manualDistrictId);
+      return lang === 'ur'
+        ? `${matched?.nameUr} (${matched?.provinceUr}) ✏`
+        : `${matched?.nameEn}, ${matched?.provinceEn} ✏`;
+    }
+    if (resolvedDistrict) {
+      return lang === 'ur'
+        ? `${resolvedDistrict.nameUr} (${resolvedDistrict.provinceUr}) ✏`
+        : `${resolvedDistrict.nameEn}, ${resolvedDistrict.provinceEn} ✏`;
+    }
+    return lang === 'ur' ? 'پاکستان (ملک گیر) ✏' : 'Pakistan (Nationwide) ✏';
+  }, [isLocating, resolvedDistrict, manualDistrictId, lang]);
+
   return (
     <SafeAreaView style={THEME.container}>
       <StatusBar barStyle="light-content" backgroundColor={COLORS.cardBg} />
@@ -242,8 +261,10 @@ export default function App() {
       {/* Header Bar */}
       <View style={THEME.header}>
         <View style={THEME.logoContainer}>
-          <Text style={THEME.logoUrdu}>فریاد</Text>
-          <Text style={THEME.logoEnglish}>FARYAAD</Text>
+          <Text style={THEME.logoText}>{lang === 'ur' ? 'فریاد' : 'FARYAAD'}</Text>
+          <View style={THEME.logoBadge}>
+            <Text style={THEME.logoBadgeText}>SOS</Text>
+          </View>
         </View>
         <TouchableOpacity style={THEME.langButton} onPress={toggleLanguage}>
           <Text style={THEME.langButtonText}>
@@ -251,6 +272,55 @@ export default function App() {
           </Text>
         </TouchableOpacity>
       </View>
+
+      {/* Low-profile Location Banner */}
+      <TouchableOpacity
+        style={THEME.locationBar}
+        onPress={() => setShowCoordsPanel(!showCoordsPanel)}
+      >
+        <Text style={THEME.locationBarText}>📍 {activeLocationText}</Text>
+        <Text style={THEME.locationChangeLink}>
+          {showCoordsPanel ? '▲' : '▼'}
+        </Text>
+      </TouchableOpacity>
+
+      {/* Collapsible Coordinates & Override Panel */}
+      {showCoordsPanel && (
+        <View style={THEME.coordsPanel}>
+          {location ? (
+            <View style={{ flexDirection: 'row', justifyContent: 'space-between' }}>
+              <View>
+                <Text style={THEME.coordsTitle}>{getTranslation(lang, 'coordinates')}</Text>
+                <Text style={THEME.coordsVal}>
+                  {location.latitude.toFixed(5)}° N, {location.longitude.toFixed(5)}° E
+                </Text>
+              </View>
+              <View style={{ alignItems: 'flex-end' }}>
+                <Text style={THEME.coordsTitle}>{getTranslation(lang, 'accuracy')}</Text>
+                <Text style={THEME.coordsVal}>
+                  ±{location.accuracy ? location.accuracy.toFixed(0) : '0'} {getTranslation(lang, 'meters')}
+                </Text>
+              </View>
+            </View>
+          ) : (
+            <Text style={{ color: COLORS.textMuted, fontSize: 12 }}>
+              {locationError || getTranslation(lang, 'unknownLocation')}
+            </Text>
+          )}
+
+          <View style={THEME.gpsButtonsRow}>
+            <TouchableOpacity style={THEME.gpsBtn} onPress={() => setModalVisible(true)}>
+              <Text style={THEME.gpsBtnText}>🔍 {getTranslation(lang, 'manualLocationBtn')}</Text>
+            </TouchableOpacity>
+
+            {manualDistrictId && (
+              <TouchableOpacity style={[THEME.gpsBtn, { borderColor: COLORS.btnActive }]} onPress={clearManualOverride}>
+                <Text style={[THEME.gpsBtnText, { color: COLORS.textMain }]}>🔄 {getTranslation(lang, 'backToGps')}</Text>
+              </TouchableOpacity>
+            )}
+          </View>
+        </View>
+      )}
 
       {/* Offline Alert Banner */}
       {!isOnline && (
@@ -262,185 +332,121 @@ export default function App() {
       )}
 
       <ScrollView contentContainerStyle={THEME.scrollContainer}>
-        {/* Current Location Display Card */}
-        <View style={THEME.locationCard}>
-          <View style={THEME.locationTitleRow}>
-            <Text style={THEME.locationTitleText}>
-              📍 {getTranslation(lang, 'myLocation')}
+        {/* Urgent Speed Dial section */}
+        <Text style={THEME.speedDialTitle}>
+          🚨 {getTranslation(lang, 'nationalHelplines')}
+        </Text>
+
+        <View style={THEME.speedDialGrid}>
+          {/* Rescue 1122 */}
+          <TouchableOpacity
+            style={[THEME.speedDialCard, THEME.speedDialCardRed]}
+            onPress={() => initiateCall('1122')}
+          >
+            <Text style={THEME.speedDialNumber}>1122</Text>
+            <Text style={THEME.speedDialLabel}>
+              {lang === 'ur' ? 'ریسکیو' : 'RESCUE'}
             </Text>
-            <View
-              style={[
-                THEME.locationStatusBadge,
-                {
-                  backgroundColor: isOnline
-                    ? 'rgba(16, 185, 129, 0.15)'
-                    : 'rgba(245, 158, 11, 0.15)',
-                },
-              ]}
-            >
-              <View
-                style={[
-                  THEME.statusBadgeDot,
-                  { backgroundColor: isOnline ? COLORS.onlineGreen : COLORS.ambulanceGold },
-                ]}
-              />
-              <Text
-                style={[
-                  THEME.statusBadgeText,
-                  { color: isOnline ? COLORS.onlineGreen : COLORS.ambulanceGold },
-                ]}
-              >
-                {isOnline ? getTranslation(lang, 'statusOnline') : getTranslation(lang, 'statusOffline')}
-              </Text>
-            </View>
-          </View>
-
-          {isLocating ? (
-            <ActivityIndicator size="small" color={COLORS.emergencyRed} />
-          ) : (
-            <View>
-              {manualDistrictId ? (
-                // Manual selection active
-                <View>
-                  {(() => {
-                    const matched = DISTRICTS_LIST.find((d) => d.id === manualDistrictId);
-                    return (
-                      <>
-                        <Text style={THEME.locationTextUrdu}>
-                          {matched?.nameUr} ({matched?.provinceUr})
-                        </Text>
-                        <Text style={THEME.locationTextEn}>
-                          {matched?.nameEn}, {matched?.provinceEn}
-                        </Text>
-                      </>
-                    );
-                  })()}
-                </View>
-              ) : resolvedDistrict ? (
-                // Resolved via geofence
-                <View>
-                  <Text style={THEME.locationTextUrdu}>
-                    {resolvedDistrict.nameUr} ({resolvedDistrict.provinceUr})
-                  </Text>
-                  <Text style={THEME.locationTextEn}>
-                    {resolvedDistrict.nameEn}, {resolvedDistrict.provinceEn}
-                  </Text>
-                </View>
-              ) : (
-                // General fallback / Out of bounds
-                <View>
-                  <Text style={THEME.locationTextUrdu}>پاکستان (ملک گیر)</Text>
-                  <Text style={THEME.locationTextEn}>Pakistan (Nationwide)</Text>
-                </View>
-              )}
-            </View>
-          )}
-
-          {/* Location Coordinates block */}
-          {location && (
-            <View style={THEME.coordsRow}>
-              <View style={THEME.coordCol}>
-                <Text style={THEME.coordLabel}>{getTranslation(lang, 'coordinates')}</Text>
-                <Text style={THEME.coordVal}>
-                  {location.latitude.toFixed(5)}° N, {location.longitude.toFixed(5)}° E
-                </Text>
-              </View>
-              <View style={[THEME.coordCol, { alignItems: 'flex-end' }]}>
-                <Text style={THEME.coordLabel}>{getTranslation(lang, 'accuracy')}</Text>
-                <Text style={THEME.coordVal}>
-                  ±{location.accuracy ? location.accuracy.toFixed(0) : '0'} {getTranslation(lang, 'meters')}
-                </Text>
-              </View>
-            </View>
-          )}
-
-          {/* Accuracy alert */}
-          {location && location.accuracy && location.accuracy > 50 && (
-            <Text style={{ color: COLORS.ambulanceGold, fontSize: 11, marginTop: 8, fontWeight: '600' }}>
-              ⚠ {getTranslation(lang, 'gpsAccuracyWarning')}
+            <Text style={THEME.speedDialSubLabel}>
+              {lang === 'ur' ? 'سرکاری ایمرجنسی' : 'Govt Emergency'}
             </Text>
-          )}
+          </TouchableOpacity>
 
-          {/* Manual override button / GPS revert */}
-          {manualDistrictId ? (
-            <TouchableOpacity style={THEME.gpsResetBtn} onPress={clearManualOverride}>
-              <Text style={THEME.gpsResetBtnText}>🔄 {getTranslation(lang, 'backToGps')}</Text>
-            </TouchableOpacity>
-          ) : (
-            <TouchableOpacity style={THEME.overrideBtn} onPress={() => setModalVisible(true)}>
-              <Text style={THEME.overrideBtnText}>🔍 {getTranslation(lang, 'manualLocationBtn')}</Text>
-            </TouchableOpacity>
-          )}
+          {/* Edhi 115 */}
+          <TouchableOpacity
+            style={[THEME.speedDialCard, THEME.speedDialCardGold]}
+            onPress={() => initiateCall('115')}
+          >
+            <Text style={THEME.speedDialNumber}>115</Text>
+            <Text style={THEME.speedDialLabel}>
+              {lang === 'ur' ? 'ایدھی' : 'EDHI'}
+            </Text>
+            <Text style={THEME.speedDialSubLabel}>
+              {lang === 'ur' ? 'ایمبولینس' : 'Ambulance'}
+            </Text>
+          </TouchableOpacity>
+
+          {/* Chhipa 1020 */}
+          <TouchableOpacity
+            style={[THEME.speedDialCard, THEME.speedDialCardGold]}
+            onPress={() => initiateCall('1020')}
+          >
+            <Text style={THEME.speedDialNumber}>1020</Text>
+            <Text style={THEME.speedDialLabel}>
+              {lang === 'ur' ? 'چھیپا' : 'CHHIPA'}
+            </Text>
+            <Text style={THEME.speedDialSubLabel}>
+              {lang === 'ur' ? 'ایمبولینس' : 'Ambulance'}
+            </Text>
+          </TouchableOpacity>
         </View>
 
         {/* High-urgency Disclaimer */}
         <View style={THEME.disclaimerBox}>
-          <Text style={THEME.disclaimerTitle}>
-            ⚠ {lang === 'ur' ? 'ضروری ہدایت' : 'Emergency Instruction'}
-          </Text>
           <Text style={THEME.disclaimerText}>
-            {getTranslation(lang, 'callDisclaimer')}
+            ℹ {getTranslation(lang, 'callDisclaimer')}
           </Text>
         </View>
 
-        {/* Emergency Services Listing */}
-        <Text style={lang === 'ur' ? THEME.sectionTitleUrdu : THEME.sectionTitle}>
-          {getTranslation(lang, 'nationalHelplines')} / {getTranslation(lang, 'localServices')}
-        </Text>
+        {/* Section header for Nearby results */}
+        <View style={THEME.sectionHeader}>
+          <Text style={THEME.sectionTitle}>
+            🏨 {getTranslation(lang, 'localServices')}
+          </Text>
+          {isOnline && (
+            <View style={THEME.liveBadge}>
+              <View style={THEME.liveBadgeDot} />
+              <Text style={THEME.liveBadgeText}>
+                {getTranslation(lang, 'liveFeeds').toUpperCase()}
+              </Text>
+            </View>
+          )}
+        </View>
 
-        {/* Real-time loader indicator */}
+        {/* Dynamic loader */}
         {isFetchingLive && (
-          <View style={[THEME.loaderBox, { marginBottom: 12 }]}>
+          <View style={THEME.loaderBox}>
             <ActivityIndicator size="small" color={COLORS.ambulanceGold} />
             <Text style={THEME.loaderText}>{getTranslation(lang, 'loadingLive')}</Text>
           </View>
         )}
 
-        {/* Render contacts */}
+        {/* Render nearby / local merged contacts */}
         {mergedContacts.length === 0 ? (
-          <View style={THEME.emptyBox}>
-            <Text style={THEME.emptyText}>
-              {lang === 'ur' ? 'کوئی نمبر دستیاب نہیں ہے' : 'No emergency contacts resolved.'}
-            </Text>
-          </View>
+          !isFetchingLive && (
+            <View style={THEME.loaderBox}>
+              <Text style={THEME.loaderText}>
+                {lang === 'ur' ? 'کوئی قریبی نمبر نہیں ملا' : 'No nearby services resolved.'}
+              </Text>
+            </View>
+          )
         ) : (
           mergedContacts.map((contact) => (
             <View key={contact.id} style={THEME.card}>
               <View style={THEME.cardDetails}>
-                <View style={THEME.cardHeaderRow}>
-                  <Text
-                    style={[
-                      THEME.badge,
-                      contact.source === 'live_map' ? THEME.badgeLive : THEME.badgeVerified,
-                    ]}
-                  >
-                    {contact.source === 'live_map'
-                      ? getTranslation(lang, 'liveFeeds').toUpperCase()
-                      : getTranslation(lang, 'verifiedDb').toUpperCase()}
-                  </Text>
-                  {contact.distanceKm !== undefined && (
-                    <Text style={THEME.distanceText}>
-                      ⚡ {contact.distanceKm} {lang === 'ur' ? 'کلومیٹر' : 'km'}
-                    </Text>
-                  )}
-                </View>
-
-                <Text style={lang === 'ur' ? THEME.cardTitleUr : THEME.cardTitleEn}>
-                  {lang === 'ur' ? contact.nameUr : contact.nameEn}
+                <Text style={THEME.cardCategory}>
+                  {lang === 'ur' ? contact.categoryUr : contact.categoryEn}
                 </Text>
                 
-                <Text style={{ fontSize: 12, color: COLORS.ambulanceGold, marginTop: 4, fontWeight: '700' }}>
-                  📞 {contact.phone}
+                <Text style={THEME.cardTitle}>
+                  {lang === 'ur' ? contact.nameUr : contact.nameEn}
                 </Text>
 
-                <Text style={THEME.cardAddress} numberOfLines={2}>
-                  📍 {lang === 'ur' && contact.addressUr ? contact.addressUr : contact.addressEn}
-                </Text>
+                <View style={THEME.cardMetaRow}>
+                  {contact.distanceKm !== undefined && (
+                    <Text style={THEME.cardMetaItem}>
+                      📍 {contact.distanceKm} {lang === 'ur' ? 'کلو میٹر' : 'km'}
+                    </Text>
+                  )}
+                  <Text style={[THEME.cardMetaItem, THEME.cardMetaPhone]}>
+                    📞 {contact.phone}
+                  </Text>
+                </View>
               </View>
 
               <TouchableOpacity style={THEME.callBtn} onPress={() => initiateCall(contact.phone)}>
-                <Text style={lang === 'ur' ? THEME.callBtnTextUr : THEME.callBtnTextEn}>
-                  {getTranslation(lang, 'callBtn')}
+                <Text style={THEME.callBtnText}>
+                  {lang === 'ur' ? 'کال کریں' : 'CALL'}
                 </Text>
               </TouchableOpacity>
             </View>
@@ -453,7 +459,7 @@ export default function App() {
         <View style={THEME.modalContainer}>
           <View style={THEME.modalContent}>
             <View style={THEME.modalHeader}>
-              <Text style={lang === 'ur' ? THEME.modalTitleUr : THEME.modalTitleEn}>
+              <Text style={THEME.modalTitle}>
                 {getTranslation(lang, 'selectDistrictTitle')}
               </Text>
               <TouchableOpacity style={THEME.closeBtn} onPress={() => setModalVisible(false)}>
@@ -478,13 +484,13 @@ export default function App() {
                   style={THEME.districtItem}
                   onPress={() => selectManualDistrict(item.id)}
                 >
-                  <View style={THEME.districtDetails}>
-                    <Text style={THEME.districtNameEn}>{item.nameEn}</Text>
-                    <Text style={THEME.districtProvinceEn}>{item.provinceEn}</Text>
-                  </View>
-                  <View>
-                    <Text style={THEME.districtNameUr}>{item.nameUr}</Text>
-                    <Text style={THEME.districtProvinceUr}>{item.provinceUr}</Text>
+                  <View style={{ flex: 1 }}>
+                    <Text style={THEME.districtName}>
+                      {lang === 'ur' ? item.nameUr : item.nameEn}
+                    </Text>
+                    <Text style={THEME.districtProvince}>
+                      {lang === 'ur' ? item.provinceUr : item.provinceEn}
+                    </Text>
                   </View>
                 </TouchableOpacity>
               )}

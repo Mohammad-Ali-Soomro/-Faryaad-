@@ -25,6 +25,8 @@ interface OverpassElement {
     'addr:housenumber'?: string;
     amenity?: string;
     emergency?: string;
+    healthcare?: string;
+    operator?: string;
   };
 }
 
@@ -33,27 +35,29 @@ interface OverpassResponse {
 }
 
 /**
- * Queries OpenStreetMap Overpass API to fetch active hospitals, clinics, and emergency stations nearby.
- * @param latitude User's current latitude
- * @param longitude User's current longitude
- * @param radiusInMeters Search radius (default 15,000m / 15km)
+ * Highly comprehensive Overpass search for all medical, rescue, and ambulance listings.
+ * Includes fallback logic to map named organizations (Edhi, Chhipa, Rescue 1122) to their numbers.
  */
 export const searchNearbyOsmFacilities = async (
   latitude: number,
   longitude: number,
-  radiusInMeters = 15000
+  radiusInMeters = 20000 // Expanded search radius to 20km for remote coverage
 ): Promise<EmergencyContact[]> => {
-  // Overpass QL Query looking for hospitals, clinics, and ambulance stations
+  // Query looks for:
+  // 1. Core amenities: hospitals, clinics, doctors, ambulance stations
+  // 2. Healthcare tags: hospitals, clinics
+  // 3. Name regex matches: Edhi, Chhipa, Chippa, Alkhidmat, Rescue, Hilal-e-Ahmer, Ambulance
   const query = `
-    [out:json][timeout:15];
+    [out:json][timeout:20];
     (
-      node["amenity"="hospital"](around:${radiusInMeters}, ${latitude}, ${longitude});
-      way["amenity"="hospital"](around:${radiusInMeters}, ${latitude}, ${longitude});
-      node["amenity"="clinic"](around:${radiusInMeters}, ${latitude}, ${longitude});
-      node["emergency"="ambulance_station"](around:${radiusInMeters}, ${latitude}, ${longitude});
-      node["amenity"="doctors"](around:${radiusInMeters}, ${latitude}, ${longitude});
+      node["amenity"~"hospital|clinic|doctors"](around:${radiusInMeters}, ${latitude}, ${longitude});
+      way["amenity"~"hospital|clinic"](around:${radiusInMeters}, ${latitude}, ${longitude});
+      node["emergency"~"ambulance|ambulance_station"](around:${radiusInMeters}, ${latitude}, ${longitude});
+      node["healthcare"~"hospital|clinic|doctor|centre"](around:${radiusInMeters}, ${latitude}, ${longitude});
+      node["name"~"Ambulance|Hospital|Clinic|Rescue|Edhi|Chhipa|Chippa|Alkhidmat|Red Crescent|Hilal|Hosp",i](around:${radiusInMeters}, ${latitude}, ${longitude});
+      way["name"~"Ambulance|Hospital|Clinic|Rescue|Edhi|Chhipa|Chippa|Alkhidmat|Red Crescent|Hilal|Hosp",i](around:${radiusInMeters}, ${latitude}, ${longitude});
     );
-    out center 30;
+    out center 40;
   `;
 
   try {
@@ -79,7 +83,7 @@ export const searchNearbyOsmFacilities = async (
 };
 
 /**
- * Parses and maps Overpass elements to the EmergencyContact standard.
+ * Parses and applies heuristics to resolve numbers for facilities without explicit phone tags.
  */
 const parseOsmElements = (
   elements: OverpassElement[],
@@ -97,16 +101,46 @@ const parseOsmElements = (
     const lon = element.lon ?? element.center?.lon;
     if (lat === undefined || lon === undefined) continue;
 
-    // Extract name (fallback if name is missing)
-    const nameEn = tags['name:en'] || tags.name || (tags.amenity === 'hospital' ? 'Local Hospital' : 'Medical Center');
+    // Extract names
+    const rawName = tags.name || '';
+    const nameEn = tags['name:en'] || tags.name || (tags.amenity === 'hospital' ? 'Local Hospital' : 'Medical Facility');
     const nameUr = tags['name:ur'] || tags.name || (tags.amenity === 'hospital' ? 'مقامی ہسپتال' : 'طبی مرکز');
 
-    // Extract phone number (look across multiple possible OSM tags)
-    const rawPhone = tags.phone || tags['contact:phone'] || tags['emergency:phone'] || tags.mobile;
-    if (!rawPhone) continue; // In an emergency app, only show facilities with phone numbers
+    // Extract phone number or apply heuristics based on organization name
+    let phone = tags.phone || tags['contact:phone'] || tags['emergency:phone'] || tags.mobile || '';
 
-    // Clean phone number (remove spaces, parentheses, etc.)
-    const cleanPhone = rawPhone.replace(/\s+/g, '').replace(/[()\-]/g, '');
+    // Clean initial phone number if present
+    if (phone) {
+      phone = phone.replace(/\s+/g, '').replace(/[()\-]/g, '');
+    } else {
+      // Heuristic: If missing phone tag, check if name matches a major emergency responder network in Pakistan
+      const lowerName = rawName.toLowerCase();
+      const operator = (tags.operator || '').toLowerCase();
+      
+      if (lowerName.includes('edhi') || operator.includes('edhi') || lowerName.includes('ایدھی')) {
+        phone = '115';
+      } else if (
+        lowerName.includes('chhipa') || 
+        lowerName.includes('chippa') || 
+        operator.includes('chhipa') || 
+        operator.includes('chippa') ||
+        lowerName.includes('چھیپا')
+      ) {
+        phone = '1020';
+      } else if (
+        lowerName.includes('rescue') || 
+        lowerName.includes('1122') || 
+        operator.includes('1122') ||
+        lowerName.includes('ریسکیو')
+      ) {
+        phone = '1122';
+      } else if (lowerName.includes('alkhidmat') || lowerName.includes('الخدمت')) {
+        phone = '1023';
+      } else {
+        // Skip generic facilities that have absolutely no phone number listed and do not match major networks
+        continue;
+      }
+    }
 
     // Calculate distance
     const distanceKm = calculateDistance(userLat, userLng, lat, lon);
@@ -114,12 +148,14 @@ const parseOsmElements = (
     // Resolve category
     let categoryEn = 'Hospital';
     let categoryUr = 'ہسپتال';
-    if (tags.emergency === 'ambulance_station') {
+    
+    const lowerName = rawName.toLowerCase();
+    if (tags.emergency === 'ambulance_station' || lowerName.includes('ambulance') || lowerName.includes('ایمبولینس')) {
       categoryEn = 'Ambulance Station';
       categoryUr = 'ایمبولینس اسٹیشن';
-    } else if (tags.amenity === 'clinic' || tags.amenity === 'doctors') {
-      categoryEn = 'Clinic / Doctor';
-      categoryUr = 'کلینک / ڈاکٹر';
+    } else if (tags.amenity === 'clinic' || tags.amenity === 'doctors' || lowerName.includes('clinic')) {
+      categoryEn = 'Clinic';
+      categoryUr = 'کلینک';
     }
 
     // Build street address
@@ -134,7 +170,7 @@ const parseOsmElements = (
       nameUr,
       categoryEn,
       categoryUr,
-      phone: cleanPhone,
+      phone,
       distanceKm,
       source: 'live_map',
       addressEn,
@@ -142,6 +178,18 @@ const parseOsmElements = (
     });
   }
 
+  // Deduplicate results with identical names and phone numbers
+  const seenKeys = new Set<string>();
+  const uniqueContacts: EmergencyContact[] = [];
+
+  for (const c of contacts) {
+    const key = `${c.nameEn.toLowerCase()}_${c.phone}`;
+    if (!seenKeys.has(key)) {
+      seenKeys.add(key);
+      uniqueContacts.push(c);
+    }
+  }
+
   // Sort by distance (closest first)
-  return contacts.sort((a, b) => (a.distanceKm || 0) - (b.distanceKm || 0));
+  return uniqueContacts.sort((a, b) => (a.distanceKm || 0) - (b.distanceKm || 0));
 };
