@@ -62,6 +62,7 @@ export const searchNearbyOsmFacilities = async (
       body: `data=${encodeURIComponent(query)}`,
       headers: {
         'Content-Type': 'application/x-www-form-urlencoded',
+        'User-Agent': 'FaryaadEmergencyApp/1.0 (contact: info@faryaad-emergency.pk)',
       },
     });
 
