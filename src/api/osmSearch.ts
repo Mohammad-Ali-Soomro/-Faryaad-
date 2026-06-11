@@ -41,23 +41,20 @@ interface OverpassResponse {
 export const searchNearbyOsmFacilities = async (
   latitude: number,
   longitude: number,
-  radiusInMeters = 20000 // Expanded search radius to 20km for remote coverage
+  radiusInMeters = 12000 // Optimized search radius to 12km to prevent timeouts
 ): Promise<EmergencyContact[]> => {
-  // Query looks for:
-  // 1. Core amenities: hospitals, clinics, doctors, ambulance stations
-  // 2. Healthcare tags: hospitals, clinics
-  // 3. Name regex matches: Edhi, Chhipa, Chippa, Alkhidmat, Rescue, Hilal-e-Ahmer, Ambulance
+  // Optimized Query: narrows nodes/ways by indexed keys first, preventing gateway timeouts
   const query = `
-    [out:json][timeout:20];
+    [out:json][timeout:12];
     (
-      node["amenity"~"hospital|clinic|doctors"](around:${radiusInMeters}, ${latitude}, ${longitude});
+      node["amenity"~"hospital|clinic|doctors|social_facility|ambulance_station"](around:${radiusInMeters}, ${latitude}, ${longitude});
       way["amenity"~"hospital|clinic"](around:${radiusInMeters}, ${latitude}, ${longitude});
       node["emergency"~"ambulance|ambulance_station"](around:${radiusInMeters}, ${latitude}, ${longitude});
       node["healthcare"~"hospital|clinic|doctor|centre"](around:${radiusInMeters}, ${latitude}, ${longitude});
-      node["name"~"Ambulance|Hospital|Clinic|Rescue|Edhi|Chhipa|Chippa|Alkhidmat|Red Crescent|Hilal|Hosp",i](around:${radiusInMeters}, ${latitude}, ${longitude});
-      way["name"~"Ambulance|Hospital|Clinic|Rescue|Edhi|Chhipa|Chippa|Alkhidmat|Red Crescent|Hilal|Hosp",i](around:${radiusInMeters}, ${latitude}, ${longitude});
+      node["amenity"="office"]["name"~"Edhi|Chhipa|Chippa|Alkhidmat|Rescue|Ambulance",i](around:${radiusInMeters}, ${latitude}, ${longitude});
+      way["amenity"="office"]["name"~"Edhi|Chhipa|Chippa|Alkhidmat|Rescue|Ambulance",i](around:${radiusInMeters}, ${latitude}, ${longitude});
     );
-    out center 40;
+    out center 35;
   `;
 
   try {
